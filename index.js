@@ -3,7 +3,7 @@ const app = express()
 require('dotenv').config()
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-const { MongoClient, ServerApiVersion } = require('mongodb')
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb')
 const jwt = require('jsonwebtoken')
 const morgan = require('morgan')
 const port = process.env.PORT || 5000
@@ -11,7 +11,7 @@ const port = process.env.PORT || 5000
 // middleware
 
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: ['http://localhost:5173'],
   credentials: true,
   optionSuccessStatus: 200,
 }
@@ -51,7 +51,13 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
- // auth related api
+     // Connect the client to the server	(optional starting in v4.7)
+     await client.connect();
+ 
+    const usersCollection = client.db('JbBookingDB').collection('users') 
+    const roomsCollection = client.db('JbBookingDB').collection('rooms') 
+
+//  auth related api
  app.post('/jwt', async (req, res) => {
   const user = req.body
   console.log('I need a new jwt', user)
@@ -86,30 +92,45 @@ app.get('/logout', async (req, res) => {
 // Save or modify user email, status in DB
 app.put('/users/:email', async (req, res) => {
   const email = req.params.email
+  console.log(email);
   const user = req.body
-  const query = { email: email }
-  const options = { upsert: true }
-  const isExist = await usersCollection.findOne(query)
+  console.log(user);
+  const query = {email: email}
+  const options = {upsert: true}
+  const  isExist = await usersCollection.findOne(query)
   console.log('User found?----->', isExist)
-  if (isExist) return res.send(isExist)
+  if(isExist) return res.send(isExist)
   const result = await usersCollection.updateOne(
-    query,
-    {
-      $set: { ...user, timestamp: Date.now() },
-    },
-    options
-  )
-  res.send(result)
-})
+   query,{
+     $set: {...user, timestamp: Date.now()}
+   },
+   options,
+)
+res.send(result)
+ })
 
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+ // all room get
+
+ app.get('/rooms', async (req, res)=>{
+      const result = await roomsCollection.find().toArray()
+      res.send(result)
+
+ })
+//  get single room data
+ app.get('/room/:id', async (req, res)=>{
+      const id = req.params.id
+      const result = await roomsCollection.findOne({_id: new ObjectId(id)})
+      res.send(result)
+
+ })
+
+   
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
-    await client.close();
+    // await client.close();
   }
 }
 run().catch(console.dir);
